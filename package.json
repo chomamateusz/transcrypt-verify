@@ -1,6 +1,6 @@
 {
   "name": "transcrypt-verify",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "End-to-end recovery test for transcrypt-encrypted git repos: clone, verify ciphertext, unlock, verify plaintext, clean up",
   "type": "module",
   "bin": {

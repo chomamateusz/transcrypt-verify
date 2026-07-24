@@ -30,7 +30,7 @@ Optional second argument is the openssl cipher (default `aes-256-cbc`):
 npx github:chomamateusz/transcrypt-verify owner/repo aes-256-cbc
 ```
 
-When transcrypt asks `Generate a random password? [Y/n]` — answer **n**, then paste your saved password. A flood of OpenSSL `deprecated key derivation` warnings during unlock is normal (one per file).
+The tool asks for the password itself (hidden input) and runs transcrypt non-interactively — you can also pass it explicitly with `-p '<password>'`. A flood of OpenSSL `deprecated key derivation` warnings during unlock is normal (one per file).
 
 ### Non-interactive (CI)
 

@@ -8,22 +8,32 @@ import { createInterface } from "node:readline/promises";
 const usage = `transcrypt-verify — end-to-end recovery test for transcrypt-encrypted repos
 
 Clones the repo into a temp dir, confirms files are ciphertext, unlocks with
-your password (interactive prompt), shows decrypted content, cleans up.
+your password, shows decrypted content, cleans up.
 
 Usage:
-  npx github:chomamateusz/transcrypt-verify [repo] [cipher]
+  npx github:chomamateusz/transcrypt-verify [repo] [cipher] [options]
 
-  repo    URL or owner/name (prompted for when omitted)
+  repo    URL or owner/name (prompted for when omitted; owner/name tries
+          HTTPS first, then falls back to SSH)
   cipher  openssl cipher, default aes-256-cbc
 
+Options:
+  -p, --password <pw>  transcrypt password (otherwise a hidden prompt asks)
+
 Env:
-  TRANSCRYPT_VERIFY_PASSWORD  non-interactive mode (CI): password via env
+  TRANSCRYPT_VERIFY_PASSWORD  password for non-interactive runs (CI)
 `;
 
-const argv = process.argv.slice(2);
-if (argv.includes("-h") || argv.includes("--help")) {
+const rawArgv = process.argv.slice(2);
+if (rawArgv.includes("-h") || rawArgv.includes("--help")) {
   console.log(usage);
   process.exit(0);
+}
+let flagPw = null;
+const argv = [];
+for (let i = 0; i < rawArgv.length; i++) {
+  if (rawArgv[i] === "-p" || rawArgv[i] === "--password") flagPw = rawArgv[++i] ?? null;
+  else argv.push(rawArgv[i]);
 }
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -71,25 +81,38 @@ console.log(head(80));
 if (!head(12).startsWith("U2FsdGVkX1")) fail(`${sample} does not look like transcrypt ciphertext — repo not encrypted, or clone got plaintext`);
 console.log("✓ ciphertext confirmed (U2FsdGVkX1...)");
 
-const envPw = process.env.TRANSCRYPT_VERIFY_PASSWORD;
-const args = envPw ? ["-c", cipher, "-p", envPw, "--yes"] : ["-c", cipher];
-if (!envPw) {
-  console.log("\n== Running transcrypt — answer 'n' to password generation, paste your password, confirm 'y'.");
-  console.log("   (a flood of OpenSSL 'deprecated key derivation' warnings is normal)\n");
+const nonInteractive = Boolean(process.env.TRANSCRYPT_VERIFY_PASSWORD || flagPw);
+let password = process.env.TRANSCRYPT_VERIFY_PASSWORD ?? flagPw;
+if (!password) {
+  const rlPw = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+  rlPw.stdoutMuted = false;
+  rlPw._writeToOutput = (s) => {
+    if (rlPw.stdoutMuted && !s.includes("\n")) process.stdout.write("*");
+    else process.stdout.write(s);
+  };
+  const answer = rlPw.question("\nTranscrypt password (hidden): ");
+  rlPw.stdoutMuted = true;
+  password = (await answer).trim();
+  rlPw.close();
+  process.stdout.write("\n");
 }
+if (!password) fail("No password given");
+
+console.log("\n== Running transcrypt (a flood of OpenSSL 'deprecated key derivation' warnings is normal) ...");
 rl.close();
-if (process.stdin.isTTY) process.stdin.setRawMode(false);
-process.stdin.pause();
-if (spawnSync("transcrypt", args, { cwd: dir, stdio: envPw ? ["ignore", "inherit", "inherit"] : "inherit" }).status !== 0)
+if (spawnSync("transcrypt", ["-c", cipher, "-p", password, "--yes"], { cwd: dir, stdio: ["ignore", "inherit", "inherit"] }).status !== 0)
   fail("transcrypt failed (wrong password?)");
 
 console.log(`\n== AFTER unlock (${sample}) ==`);
 console.log(head(300));
 if (head(12).startsWith("U2FsdGVkX1")) fail("File is still ciphertext — wrong password or cipher");
 
-const ask2 = createInterface({ input: process.stdin, output: process.stdout });
-const ok = envPw ? "y" : (await ask2.question("\nIs the content above readable? [y/n]: ")).trim().toLowerCase();
-ask2.close();
+let ok = "y";
+if (!nonInteractive && process.stdin.isTTY) {
+  const ask2 = createInterface({ input: process.stdin, output: process.stdout });
+  ok = (await ask2.question("\nIs the content above readable? [y/n]: ")).trim().toLowerCase();
+  ask2.close();
+}
 cleanup();
 if (ok.startsWith("y") || ok.startsWith("t")) {
   console.log("\n✅ TEST OK — the password recovers the repo. Temp clone removed.");
