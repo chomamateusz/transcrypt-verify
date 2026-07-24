@@ -1,0 +1,18 @@
+{
+  "name": "transcrypt-verify",
+  "version": "1.0.0",
+  "description": "End-to-end recovery test for transcrypt-encrypted git repos: clone, verify ciphertext, unlock, verify plaintext, clean up",
+  "type": "module",
+  "bin": {
+    "transcrypt-verify": "./cli.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chomamateusz/transcrypt-verify.git"
+  },
+  "keywords": ["transcrypt", "git", "encryption", "backup", "verification"]
+}
