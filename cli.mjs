@@ -51,7 +51,8 @@ const fail = (msg) => {
 let url = null;
 for (const candidate of candidates) {
   console.log(`\n== Cloning ${candidate} ...`);
-  if (spawnSync("git", ["clone", "--quiet", candidate, dir], { stdio: "inherit" }).status === 0) {
+  const env = candidate.startsWith("https://") ? { ...process.env, GIT_TERMINAL_PROMPT: "0" } : process.env;
+  if (spawnSync("git", ["clone", "--quiet", candidate, dir], { stdio: "inherit", env }).status === 0) {
     url = candidate;
     break;
   }
